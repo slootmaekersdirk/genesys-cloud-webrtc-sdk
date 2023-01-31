@@ -16,9 +16,6 @@
   "files": [
     "dist"
   ],
-  "pre-push": [
-    "test"
-  ],
   "watch": {
     "watchy": {
       "patterns": [
