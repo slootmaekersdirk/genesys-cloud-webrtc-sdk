@@ -257,8 +257,7 @@ export class SdkMedia extends (EventEmitter as {
    *  from `navigator.mediaDevices.enumerateDevices()`
    */
   async enumerateDevices(forceEmit = false): Promise<MediaDeviceInfo[]> {
-    const enumeratedDevices =
-      await window.navigator.mediaDevices.enumerateDevices();
+    const enumeratedDevices = await navigator.mediaDevices?.enumerateDevices();
     const oldDevices = this.getDevices();
     const mappedDevices = this.mapOldToNewDevices(
       oldDevices,
@@ -797,10 +796,10 @@ export class SdkMedia extends (EventEmitter as {
    */
   destroy() {
     this.removeAllListeners();
-    window.navigator.mediaDevices.removeEventListener(
+    /* DSL window.navigator.mediaDevices.removeEventListener(
       "devicechange",
       this.onDeviceChangeListenerRef
-    );
+    );*/
     this.allMediaTracksCreated.forEach((t) => t.stop());
   }
 
@@ -833,10 +832,10 @@ export class SdkMedia extends (EventEmitter as {
     /* tslint:disable-next-line:no-floating-promises */
     this.enumerateDevices();
     this.onDeviceChangeListenerRef = this.handleDeviceChange.bind(this);
-    window.navigator.mediaDevices.addEventListener(
+    /* DSL  window.navigator.mediaDevices.addEventListener(
       "devicechange",
       this.onDeviceChangeListenerRef
-    );
+    );*/
   }
 
   private setDevices(devices: MediaDeviceInfo[]) {
