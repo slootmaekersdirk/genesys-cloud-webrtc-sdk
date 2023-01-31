@@ -1030,7 +1030,7 @@ export class GenesysCloudWebrtcSdk extends (EventEmitter as {
       activeSessions.map((s) => this.sessionManager.forceTerminateSession(s.id))
     );
 
-    this.removeAllListeners();
+    //this.removeAllListeners();
     this.media.destroy();
     await this.disconnect();
   }
