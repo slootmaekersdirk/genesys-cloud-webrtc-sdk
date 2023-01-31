@@ -315,12 +315,13 @@ export class GenesysCloudWebrtcSdk extends (EventEmitter as {
       await proxyStreamingClientEvents.call(this);
 
       /* istanbul ignore next */
-      window.addEventListener("beforeunload", () => {
+      /* DSL window.addEventListener("beforeunload", () => {
         this.logger.info("window.beforeunload was called", {
           activeConversationsForClient:
             this.sessionManager.getAllActiveConversations(),
         });
       });
+      */
 
       /* if we are allowing softphone calls, we need station information */
       if (

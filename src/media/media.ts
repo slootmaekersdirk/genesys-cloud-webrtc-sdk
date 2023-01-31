@@ -1,7 +1,7 @@
 import { EventEmitter } from "events";
 import StrictEventEmitter from "strict-event-emitter-types";
 import { cloneDeep } from "lodash";
-//DSL import browserama from 'browserama';
+import browserama from "browserama";
 
 import GenesysCloudWebrtcSdk from "../client";
 import { createAndEmitSdkError } from "../utils";
