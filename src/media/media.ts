@@ -1,40 +1,45 @@
-import { EventEmitter } from 'events';
-import StrictEventEmitter from 'strict-event-emitter-types';
-import { cloneDeep } from 'lodash';
-import browserama from 'browserama';
+import { EventEmitter } from "events";
+import StrictEventEmitter from "strict-event-emitter-types";
+import { cloneDeep } from "lodash";
+//DSL import browserama from 'browserama';
 
-import GenesysCloudWebrtcSdk from '../client';
-import { createAndEmitSdkError } from '../utils';
-import { SdkErrorTypes } from '../types/enums';
-import { v4 } from 'uuid';
+import GenesysCloudWebrtcSdk from "../client";
+import { createAndEmitSdkError } from "../utils";
+import { SdkErrorTypes } from "../types/enums";
+import { v4 } from "uuid";
 import {
   IExtendedMediaSession,
   IMediaRequestOptions,
   ISdkMediaState,
   SdkMediaEvents,
   SdkMediaEventTypes,
-  SdkMediaTypesToRequest
-} from '../types/interfaces';
+  SdkMediaTypesToRequest,
+} from "../types/interfaces";
 
 declare const window: {
   navigator: {
     mediaDevices: {
-      getDisplayMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
+      getDisplayMedia?: (
+        constraints: MediaStreamConstraints
+      ) => Promise<MediaStream>;
     } & MediaDevices;
   } & Navigator;
   webkitAudioContext: typeof AudioContext;
-} & Window & typeof globalThis;
+} & Window &
+  typeof globalThis;
 
-export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<EventEmitter, SdkMediaEvents> }) {
+export class SdkMedia extends (EventEmitter as {
+  new (): StrictEventEmitter<EventEmitter, SdkMediaEvents>;
+}) {
   private sdk: GenesysCloudWebrtcSdk;
   private state: ISdkMediaState;
   private audioTracksBeingMonitored: { [trackId: string]: any } = {};
   private allMediaTracksCreated = new Map<string, MediaStreamTrack>();
   private onDeviceChangeListenerRef: any;
   /* stream or track id and function to remove listeners */
-  private defaultsBeingMonitored = new Map<string, (() => void)>();
+  private defaultsBeingMonitored = new Map<string, () => void>();
 
-  constructor (sdk: GenesysCloudWebrtcSdk) {
+  constructor(sdk: GenesysCloudWebrtcSdk) {
     super();
     this.sdk = sdk;
     this.state = {
@@ -49,7 +54,7 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
       hasCameraPermissions: false,
       micPermissionsRequested: false,
       cameraPermissionsRequested: false,
-      hasOutputDeviceSupport: this.hasOutputDeviceSupport()
+      hasOutputDeviceSupport: this.hasOutputDeviceSupport(),
     };
 
     /* for testing's sake, moved additional logic into a separate function */
@@ -136,8 +141,8 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
    * @returns a promise either containing a `MediaStream` or `undefined`
    *   depending on the value of `preserveMedia`
    */
-  async requestMediaPermissions (
-    mediaType: 'audio' | 'video' | 'both',
+  async requestMediaPermissions(
+    mediaType: "audio" | "video" | "both",
     preserveMedia = false,
     options?: IMediaRequestOptions
   ): Promise<MediaStream | void> {
@@ -145,24 +150,32 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
     if (!optionsCopy.uuid) {
       optionsCopy.uuid = v4();
     }
-    const requestingAudio = mediaType === 'audio';
-    const requestingVideo = mediaType === 'video';
-    const requestingBoth = mediaType === 'both';
+    const requestingAudio = mediaType === "audio";
+    const requestingVideo = mediaType === "video";
+    const requestingBoth = mediaType === "both";
 
-    if (typeof optionsCopy.retryOnFailure !== 'boolean') {
+    if (typeof optionsCopy.retryOnFailure !== "boolean") {
       optionsCopy.retryOnFailure = true; // default to `true`
     }
 
     /* make sure the options are valid */
     if (requestingBoth) {
-      optionsCopy.audio = this.getValidSdkMediaRequestDeviceId(optionsCopy.audio);
-      optionsCopy.video = this.getValidSdkMediaRequestDeviceId(optionsCopy.video);
+      optionsCopy.audio = this.getValidSdkMediaRequestDeviceId(
+        optionsCopy.audio
+      );
+      optionsCopy.video = this.getValidSdkMediaRequestDeviceId(
+        optionsCopy.video
+      );
     } else if (requestingAudio) {
-      optionsCopy.audio = this.getValidSdkMediaRequestDeviceId(optionsCopy.audio);
+      optionsCopy.audio = this.getValidSdkMediaRequestDeviceId(
+        optionsCopy.audio
+      );
       optionsCopy.video = false;
-    } else /* if (requestingVideo) */ {
+    } /* if (requestingVideo) */ else {
       optionsCopy.audio = false;
-      optionsCopy.video = this.getValidSdkMediaRequestDeviceId(optionsCopy.video);
+      optionsCopy.video = this.getValidSdkMediaRequestDeviceId(
+        optionsCopy.video
+      );
     }
 
     /* delete the session off this before logging */
@@ -171,7 +184,7 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
       preserveMedia,
       requestOptions: { ...optionsCopy, session: undefined },
       sessionId: options?.session?.id,
-      conversationId: options?.session?.conversationId
+      conversationId: options?.session?.conversationId,
     };
 
     /* first load devices */
@@ -179,18 +192,20 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
 
     let stream: MediaStream;
 
-    this.sdk.logger.info('requesting media to gain permissions', optionsToLog);
+    this.sdk.logger.info("requesting media to gain permissions", optionsToLog);
 
     if (requestingAudio) {
-      stream = await this.startSingleMedia('audio', optionsCopy);
+      stream = await this.startSingleMedia("audio", optionsCopy);
     } else if (requestingVideo) {
-      stream = await this.startSingleMedia('video', optionsCopy);
+      stream = await this.startSingleMedia("video", optionsCopy);
     } else if (requestingBoth) {
       /* startMedia() makes individual requests to requestMediaPermissions() and combines the returned media */
       stream = await this.startMedia(optionsCopy);
     } else {
       /* should never get here, but just in case */
-      throw new Error('Must call `requestMediaPermissions()` with at least one valid media type: `audio`, `video`, or `both`');
+      throw new Error(
+        "Must call `requestMediaPermissions()` with at least one valid media type: `audio`, `video`, or `both`"
+      );
     }
 
     /* enumerate devices again because we may not have had labels the first time */
@@ -200,18 +215,24 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
 
     /* if perserveMedia, then return the media */
     if (preserveMedia) {
-      this.sdk.logger.info('finished requesting media permissions. perserving media', {
-        mediaTracks,
-        options: optionsToLog
-      });
+      this.sdk.logger.info(
+        "finished requesting media permissions. perserving media",
+        {
+          mediaTracks,
+          options: optionsToLog,
+        }
+      );
       return stream;
     }
 
-    this.sdk.logger.info('finished requesting media permissions. destroying media', {
-      mediaTracks,
-      ...optionsToLog
-    });
-    mediaTracks.forEach(t => t.stop());
+    this.sdk.logger.info(
+      "finished requesting media permissions. destroying media",
+      {
+        mediaTracks,
+        ...optionsToLog,
+      }
+    );
+    mediaTracks.forEach((t) => t.stop());
   }
 
   /**
@@ -235,24 +256,30 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
    * @returns a promise containing the devices enumerated
    *  from `navigator.mediaDevices.enumerateDevices()`
    */
-  async enumerateDevices (forceEmit = false): Promise<MediaDeviceInfo[]> {
-    const enumeratedDevices = await window.navigator.mediaDevices.enumerateDevices();
+  async enumerateDevices(forceEmit = false): Promise<MediaDeviceInfo[]> {
+    const enumeratedDevices =
+      await window.navigator.mediaDevices.enumerateDevices();
     const oldDevices = this.getDevices();
     const mappedDevices = this.mapOldToNewDevices(
       oldDevices,
       enumeratedDevices
     );
 
-    this.sdk.logger.debug('enumerated and mapped devices', {
+    this.sdk.logger.debug("enumerated and mapped devices", {
       enumeratedDevices,
       mappedDevices,
-      oldDevices
+      oldDevices,
     });
-    const deviceListsMatched = this.doDeviceListsMatch(oldDevices, enumeratedDevices);
+    const deviceListsMatched = this.doDeviceListsMatch(
+      oldDevices,
+      enumeratedDevices
+    );
 
     /* if the devices changed or we want to force emit them */
     if (!deviceListsMatched || forceEmit) {
-      this.sdk.logger.debug('enumerateDevices yielded the same devices, not emitting');
+      this.sdk.logger.debug(
+        "enumerateDevices yielded the same devices, not emitting"
+      );
       this.setDevices(mappedDevices);
     }
     return mappedDevices;
@@ -311,7 +338,7 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
    *
    * @returns a promise containing a `MediaStream` with the requested media
    */
-  async startMedia (
+  async startMedia(
     mediaReqOptions: IMediaRequestOptions = { video: true, audio: true },
     retryOnFailure = true
   ): Promise<MediaStream> {
@@ -325,12 +352,10 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
     const requestingAudio = optionsCopy.audio || optionsCopy.audio === null;
     const conversationId = optionsCopy.session?.conversationId;
     const sessionId = optionsCopy.session?.id;
-    const {
-      micPermissionsRequested,
-      cameraPermissionsRequested
-    } = this.getState();
+    const { micPermissionsRequested, cameraPermissionsRequested } =
+      this.getState();
 
-    if (typeof optionsCopy.retryOnFailure !== 'boolean') {
+    if (typeof optionsCopy.retryOnFailure !== "boolean") {
       optionsCopy.retryOnFailure = retryOnFailure;
     }
 
@@ -340,15 +365,18 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
       conversationId,
       sessionId,
       micPermissionsRequested,
-      cameraPermissionsRequested
+      cameraPermissionsRequested,
     };
 
-    this.sdk.logger.info('calling sdk.media.startMedia()', loggingExtras);
+    this.sdk.logger.info("calling sdk.media.startMedia()", loggingExtras);
 
     /* if we aren't requesting any media, call through to gUM to throw an error */
     if (!requestingAudio && !requestingVideo) {
       /* 'none' will throw the error we want so make sure to set `retry` to `false` */
-      return this.startSingleMedia('none', { ...optionsCopy, retryOnFailure: false });
+      return this.startSingleMedia("none", {
+        ...optionsCopy,
+        retryOnFailure: false,
+      });
     }
 
     let audioStream: MediaStream;
@@ -370,13 +398,17 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
       try {
         if (!micPermissionsRequested) {
           this.sdk.logger.info(
-            'attempted to get audio media before permissions checked. requesting audio permissions first and will preserve media response',
+            "attempted to get audio media before permissions checked. requesting audio permissions first and will preserve media response",
             loggingExtras
           );
-          audioStream = await this.requestMediaPermissions('audio', true, optionsCopy) as MediaStream;
+          audioStream = (await this.requestMediaPermissions(
+            "audio",
+            true,
+            optionsCopy
+          )) as MediaStream;
           /* not catching this because we want it to throw error */
         } else {
-          audioStream = await this.startSingleMedia('audio', optionsCopy);
+          audioStream = await this.startSingleMedia("audio", optionsCopy);
         }
       } catch (error) {
         audioError = error;
@@ -387,12 +419,16 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
       try {
         if (!cameraPermissionsRequested) {
           this.sdk.logger.info(
-            'attempted to get video media before permissions checked. requesting video permissions first and will preserve media response',
+            "attempted to get video media before permissions checked. requesting video permissions first and will preserve media response",
             loggingExtras
           );
-          videoStream = await this.requestMediaPermissions('video', true, optionsCopy) as MediaStream;
+          videoStream = (await this.requestMediaPermissions(
+            "video",
+            true,
+            optionsCopy
+          )) as MediaStream;
         } else {
-          videoStream = await this.startSingleMedia('video', optionsCopy);
+          videoStream = await this.startSingleMedia("video", optionsCopy);
         }
       } catch (error) {
         videoError = error;
@@ -408,15 +444,20 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
       ) {
         const succeededMedia = audioStream || videoStream;
         this.sdk.logger.warn(
-          'one type of media failed while one succeeded. not throwing the error for the failed media',
-          { audioError, videoError, mediaReqOptions: optionsCopy, succeededMedia: succeededMedia.getTracks() }
+          "one type of media failed while one succeeded. not throwing the error for the failed media",
+          {
+            audioError,
+            videoError,
+            mediaReqOptions: optionsCopy,
+            succeededMedia: succeededMedia.getTracks(),
+          }
         );
         return succeededMedia;
       } else if (audioError && videoError) {
         throw audioError; // just pick one to throw
       } else if (audioStream && videoStream) {
         /* else, both media succeeded so combine them */
-        videoStream.getTracks().forEach(t => audioStream.addTrack(t));
+        videoStream.getTracks().forEach((t) => audioStream.addTrack(t));
       }
     }
 
@@ -436,20 +477,20 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
    *
    * @returns a promise containing a `MediaStream` with the requested screen media
    */
-  async startDisplayMedia (): Promise<MediaStream> {
+  async startDisplayMedia(): Promise<MediaStream> {
     const constraints = this.getScreenShareConstraints();
     const promise = this.hasGetDisplayMedia()
       ? window.navigator.mediaDevices.getDisplayMedia(constraints)
       : window.navigator.mediaDevices.getUserMedia(constraints);
 
-    const stream = await promise.catch(e => {
+    const stream = await promise.catch((e) => {
       /* we want to emit errors on `sdk.on('sdkError')` */
       createAndEmitSdkError.call(this.sdk, SdkErrorTypes.media, e);
       throw e;
     });
-    stream.getVideoTracks().forEach(track => {
+    stream.getVideoTracks().forEach((track) => {
       if (track.muted) {
-        this.sdk.logger.warn('Track was removed because it was muted', track);
+        this.sdk.logger.warn("Track was removed because it was muted", track);
         stream.removeTrack(track);
       }
     });
@@ -465,7 +506,7 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
    *
    * @param stream media stream to use
    */
-  setDefaultAudioStream (stream?: MediaStream): void {
+  setDefaultAudioStream(stream?: MediaStream): void {
     /* if we aren't changing to a new stream, we don't need to setup listeners again */
     if (stream === this.sdk._config.defaults.audioStream) {
       return;
@@ -476,7 +517,7 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
 
     /* if we aren't setting to a new stream */
     if (!stream) {
-       return;
+      return;
     }
 
     this.setupDefaultMediaStreamListeners(stream);
@@ -502,63 +543,71 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
    * @returns a `string` if a valid deviceId was found, or `undefined` if
    *  no device could be found.
    */
-  getValidDeviceId (
+  getValidDeviceId(
     kind: MediaDeviceKind,
     deviceId: string | boolean | null,
     ...sessions: IExtendedMediaSession[]
   ): string | undefined {
     const state = this.getState();
-    const sessionInfos: Array<{ conversationId: string, sessionId: string }> =
+    const sessionInfos: Array<{ conversationId: string; sessionId: string }> =
       sessions
-        .filter(s => s)
-        .map(s => ({ sessionId: s.id, conversationId: s.conversationId }));
+        .filter((s) => s)
+        .map((s) => ({ sessionId: s.id, conversationId: s.conversationId }));
 
     let availableDevices: MediaDeviceInfo[];
     let sdkConfigDefaultDeviceId: string | null;
     let foundDevice: MediaDeviceInfo | undefined;
 
-    if (kind === 'videoinput') {
+    if (kind === "videoinput") {
       availableDevices = state.videoDevices.slice();
       sdkConfigDefaultDeviceId = this.sdk._config.defaults.videoDeviceId;
-    } else if (kind === 'audioinput') {
+    } else if (kind === "audioinput") {
       availableDevices = state.audioDevices.slice();
       sdkConfigDefaultDeviceId = this.sdk._config.defaults.audioDeviceId;
-    } else /* if (kind === 'audiooutput') */ {
+    } /* if (kind === 'audiooutput') */ else {
       availableDevices = state.outputDevices.slice();
       sdkConfigDefaultDeviceId = this.sdk._config.defaults.outputDeviceId;
     }
 
     /* if a deviceId was passed in, try to find it */
-    if (typeof deviceId === 'string') {
-      foundDevice = availableDevices.find((d: MediaDeviceInfo) => d.deviceId === deviceId);
+    if (typeof deviceId === "string") {
+      foundDevice = availableDevices.find(
+        (d: MediaDeviceInfo) => d.deviceId === deviceId
+      );
     }
 
     if (!foundDevice) {
       /* log if we didn't find the requested deviceId */
-      if (typeof deviceId === 'string') {
-        this.sdk.logger.warn(`Unable to find requested deviceId`, { kind, deviceId, sessionInfos });
+      if (typeof deviceId === "string") {
+        this.sdk.logger.warn(`Unable to find requested deviceId`, {
+          kind,
+          deviceId,
+          sessionInfos,
+        });
       }
 
       /* try to find the sdk default device (if it is not `null`) */
       if (sdkConfigDefaultDeviceId) {
-        foundDevice = availableDevices.find((d: MediaDeviceInfo) => d.deviceId === sdkConfigDefaultDeviceId);
+        foundDevice = availableDevices.find(
+          (d: MediaDeviceInfo) => d.deviceId === sdkConfigDefaultDeviceId
+        );
         /* log if we couldn't find the sdk default device */
         if (!foundDevice) {
           this.sdk.logger.warn(`Unable to find the sdk default deviceId`, {
             kind,
             deviceId: sdkConfigDefaultDeviceId,
-            sessionInfos
+            sessionInfos,
           });
         }
       }
     }
 
     if (!foundDevice) {
-      this.sdk.logger.info('Unable to find a valid deviceId', {
+      this.sdk.logger.info("Unable to find a valid deviceId", {
         kind,
         requestedDeviceId: deviceId,
         sdkConfigDefaultDeviceId,
-        sessionInfos
+        sessionInfos,
       });
     }
 
@@ -577,7 +626,9 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
    * @param deviceId media request param to validate
    * @returns a valid requestable SDK media value `string|null|true`
    */
-  getValidSdkMediaRequestDeviceId (deviceId?: string | boolean | null): string | null | true {
+  getValidSdkMediaRequestDeviceId(
+    deviceId?: string | boolean | null
+  ): string | null | true {
     if (deviceId === undefined || deviceId === false) {
       return true;
     }
@@ -590,7 +641,7 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
    *
    * @returns the current sdk media state
    */
-  getState (): ISdkMediaState {
+  getState(): ISdkMediaState {
     return cloneDeep(this.state);
   }
 
@@ -599,7 +650,7 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
    *
    * @returns an array of all cached devices
    */
-  getDevices (): MediaDeviceInfo[] {
+  getDevices(): MediaDeviceInfo[] {
     return this.getState().devices;
   }
 
@@ -608,7 +659,7 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
    *
    * @returns an array of all cached audio devices
    */
-  getAudioDevices (): MediaDeviceInfo[] {
+  getAudioDevices(): MediaDeviceInfo[] {
     return this.getState().audioDevices;
   }
 
@@ -617,7 +668,7 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
    *
    * @returns an array of all cached video devices
    */
-  getVideoDevices (): MediaDeviceInfo[] {
+  getVideoDevices(): MediaDeviceInfo[] {
     return this.getState().videoDevices;
   }
 
@@ -626,7 +677,7 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
    *
    * @returns an array of all cached output devices
    */
-  getOutputDevices (): MediaDeviceInfo[] {
+  getOutputDevices(): MediaDeviceInfo[] {
     return this.getState().outputDevices;
   }
 
@@ -637,14 +688,16 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
    * @returns an array of all active media tracks
    *  created by the sdk
    */
-  getAllActiveMediaTracks (): MediaStreamTrack[] {
+  getAllActiveMediaTracks(): MediaStreamTrack[] {
     return Array.from(this.allMediaTracksCreated.values());
   }
 
   /**
    * @deprecated use `sdk.media.findCachedDeviceByTrackLabelAndKind(track)`
    */
-  findCachedDeviceByTrackLabel (track?: MediaStreamTrack): MediaDeviceInfo | undefined {
+  findCachedDeviceByTrackLabel(
+    track?: MediaStreamTrack
+  ): MediaDeviceInfo | undefined {
     return this.findCachedDeviceByTrackLabelAndKind(track);
   }
 
@@ -656,10 +709,14 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
    * @returns the found device or `undefined` if the
    *  device could not be found.
    */
-  findCachedDeviceByTrackLabelAndKind (track?: MediaStreamTrack): MediaDeviceInfo | undefined {
+  findCachedDeviceByTrackLabelAndKind(
+    track?: MediaStreamTrack
+  ): MediaDeviceInfo | undefined {
     if (!track) return;
-    return this.getDevices().find(d =>
-      d.label === track.label && `${d.kind.substring(0, 5)}` === track.kind.substring(0, 5)
+    return this.getDevices().find(
+      (d) =>
+        d.label === track.label &&
+        `${d.kind.substring(0, 5)}` === track.kind.substring(0, 5)
     );
   }
 
@@ -671,8 +728,8 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
    * @returns the found device or `undefined` if the
    *  device could not be found.
    */
-  findCachedVideoDeviceById (id?: string): MediaDeviceInfo | undefined {
-    return this.getVideoDevices().find(d => d.deviceId === id);
+  findCachedVideoDeviceById(id?: string): MediaDeviceInfo | undefined {
+    return this.getVideoDevices().find((d) => d.deviceId === id);
   }
 
   /**
@@ -683,8 +740,8 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
    * @returns the found device or `undefined` if the
    *  device could not be found.
    */
-  findCachedAudioDeviceById (id?: string): MediaDeviceInfo | undefined {
-    return this.getAudioDevices().find(d => d.deviceId === id);
+  findCachedAudioDeviceById(id?: string): MediaDeviceInfo | undefined {
+    return this.getAudioDevices().find((d) => d.deviceId === id);
   }
 
   /**
@@ -695,11 +752,11 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
    * @returns the found device or `undefined` if the
    *  device could not be found.
    */
-  findCachedOutputDeviceById (id?: string): MediaDeviceInfo | undefined {
-    return this.getOutputDevices().find(d => d.deviceId === id);
+  findCachedOutputDeviceById(id?: string): MediaDeviceInfo | undefined {
+    return this.getOutputDevices().find((d) => d.deviceId === id);
   }
 
-   /**
+  /**
    * Returns the device that matches the passed in deviceId
    * and deviceType
    *
@@ -707,8 +764,13 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
    * @param deviceType device type audioinput | videoinput | audiooutput | etc.
    * @returns the device that matches the deviceId and type
    */
-  findCachedDeviceByIdAndKind (deviceId: string, deviceKind: MediaDeviceKind): MediaDeviceInfo {
-    return this.getDevices().find(device => device.deviceId === deviceId && device.kind === deviceKind);
+  findCachedDeviceByIdAndKind(
+    deviceId: string,
+    deviceKind: MediaDeviceKind
+  ): MediaDeviceInfo {
+    return this.getDevices().find(
+      (device) => device.deviceId === deviceId && device.kind === deviceKind
+    );
   }
 
   /**
@@ -718,9 +780,11 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
    * @param device device to look for
    * @returns boolean whether the device was found
    */
-  doesDeviceExistInCache (device?: MediaDeviceInfo): boolean {
+  doesDeviceExistInCache(device?: MediaDeviceInfo): boolean {
     if (!device) return false;
-    return this.getDevices().some(cachedDevice => this.compareDevices(device, cachedDevice));
+    return this.getDevices().some((cachedDevice) =>
+      this.compareDevices(device, cachedDevice)
+    );
   }
 
   /**
@@ -731,10 +795,13 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
    *  instance useless. A new instance will need to be
    *  created after this has been called.
    */
-  destroy () {
+  destroy() {
     this.removeAllListeners();
-    window.navigator.mediaDevices.removeEventListener('devicechange', this.onDeviceChangeListenerRef);
-    this.allMediaTracksCreated.forEach(t => t.stop());
+    window.navigator.mediaDevices.removeEventListener(
+      "devicechange",
+      this.onDeviceChangeListenerRef
+    );
+    this.allMediaTracksCreated.forEach((t) => t.stop());
   }
 
   /**
@@ -743,14 +810,16 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
    * @param error to check
    * @returns whether the error denied permissions or not
    */
-  isPermissionsError (error: Error): boolean {
+  isPermissionsError(error: Error): boolean {
     return (
       /* User denies browser permissions prompt */
-      error.name === 'NotAllowedError' ||
+      error.name === "NotAllowedError" ||
       /* OS permissions error in chrome (no error is thrown for not having mic OS permissions) */
-      (error.name === 'DOMException' && error.message === 'Could not start video source') ||
+      (error.name === "DOMException" &&
+        error.message === "Could not start video source") ||
       /* OS permissions error in FF */
-      (error.name === 'NotFoundError' && error.message === 'The object can not be found here.')
+      (error.name === "NotFoundError" &&
+        error.message === "The object can not be found here.")
     );
   }
 
@@ -760,50 +829,64 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
   /**
    * loads devices and listens for devicechange events
    */
-  private initialize () {
+  private initialize() {
     /* tslint:disable-next-line:no-floating-promises */
     this.enumerateDevices();
     this.onDeviceChangeListenerRef = this.handleDeviceChange.bind(this);
-    window.navigator.mediaDevices.addEventListener('devicechange', this.onDeviceChangeListenerRef);
+    window.navigator.mediaDevices.addEventListener(
+      "devicechange",
+      this.onDeviceChangeListenerRef
+    );
   }
 
-  private setDevices (devices: MediaDeviceInfo[]) {
+  private setDevices(devices: MediaDeviceInfo[]) {
     const oldDevices = this.getDevices();
-    const outputDevices = devices.filter(d => d.kind === 'audiooutput');
-    const audioDevices = devices.filter(d => d.kind === 'audioinput');
-    const videoDevices = devices.filter(d => d.kind === 'videoinput');
+    const outputDevices = devices.filter((d) => d.kind === "audiooutput");
+    const audioDevices = devices.filter((d) => d.kind === "audioinput");
+    const videoDevices = devices.filter((d) => d.kind === "videoinput");
 
-    this.setStateAndEmit({
-      devices,
-      oldDevices,
-      outputDevices,
-      audioDevices,
-      videoDevices,
-      hasCamera: !!videoDevices.length,
-      hasMic: !!audioDevices.length
-    }, 'devices');
+    this.setStateAndEmit(
+      {
+        devices,
+        oldDevices,
+        outputDevices,
+        audioDevices,
+        videoDevices,
+        hasCamera: !!videoDevices.length,
+        hasMic: !!audioDevices.length,
+      },
+      "devices"
+    );
   }
 
-  private setPermissions (newState: Partial<ISdkMediaState>) {
-    this.setStateAndEmit(newState, 'permissions');
+  private setPermissions(newState: Partial<ISdkMediaState>) {
+    this.setStateAndEmit(newState, "permissions");
   }
 
-  private setStateAndEmit (newState: Partial<ISdkMediaState>, eventType: SdkMediaEventTypes) {
+  private setStateAndEmit(
+    newState: Partial<ISdkMediaState>,
+    eventType: SdkMediaEventTypes
+  ) {
     /* set the new state */
     this.state = { ...this.state, ...cloneDeep(newState) };
     /* grab a copy of it to emit */
     const stateCopy = this.getState();
     /* emit on 'state' and the specific eventType */
-    this.emit('state', { ...stateCopy, eventType });
+    this.emit("state", { ...stateCopy, eventType });
     this.emit(eventType, { ...stateCopy, eventType });
   }
 
-  private monitorMicVolume (stream: MediaStream, track: MediaStreamTrack, sessionId?: string) {
-    if (this.audioTracksBeingMonitored[track.id] || track.kind !== 'audio') {
+  private monitorMicVolume(
+    stream: MediaStream,
+    track: MediaStreamTrack,
+    sessionId?: string
+  ) {
+    if (this.audioTracksBeingMonitored[track.id] || track.kind !== "audio") {
       return;
     }
 
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const audioContext = new (window.AudioContext ||
+      window.webkitAudioContext)();
     const audioSource = audioContext.createMediaStreamSource(stream);
     const analyser = audioContext.createAnalyser();
     analyser.fftSize = 512;
@@ -816,13 +899,18 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
       analyser.getByteFrequencyData(volumes);
       const volumeSum = volumes.reduce((total, current) => total + current, 0);
       const averageVolume = volumeSum / volumes.length;
-      this.emit('audioTrackVolume', { track, volume: averageVolume, sessionId, muted: !track.enabled || track.muted });
+      this.emit("audioTrackVolume", {
+        track,
+        volume: averageVolume,
+        sessionId,
+        muted: !track.enabled || track.muted,
+      });
     };
 
     this.audioTracksBeingMonitored[track.id] = setInterval(volumeCallback, 100);
   }
 
-  private clearAudioInputMonitor (trackId: string) {
+  private clearAudioInputMonitor(trackId: string) {
     const intervalId = this.audioTracksBeingMonitored[trackId];
     if (!intervalId) {
       return;
@@ -832,12 +920,15 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
     delete this.audioTracksBeingMonitored[trackId];
   }
 
-  private hasGetDisplayMedia (): boolean {
-    return !!(window.navigator?.mediaDevices?.getDisplayMedia);
+  private hasGetDisplayMedia(): boolean {
+    return !!window.navigator?.mediaDevices?.getDisplayMedia;
   }
 
-  private hasOutputDeviceSupport (): boolean {
-    return window.HTMLMediaElement.prototype.hasOwnProperty('setSinkId');
+  private hasOutputDeviceSupport(): boolean {
+    return false;
+    /* DSL
+    return window.HTMLMediaElement.prototype.hasOwnProperty("setSinkId");
+    */
   }
 
   /**
@@ -862,7 +953,9 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
    *
    * @param options media request options
    */
-  private getStandardConstraints (options: IMediaRequestOptions): MediaStreamConstraints {
+  private getStandardConstraints(
+    options: IMediaRequestOptions
+  ): MediaStreamConstraints {
     const constraints: any = {
       video: {},
       audio: {
@@ -871,31 +964,41 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
         echoCancellation: this.sdk._config.defaults.micEchoCancellation,
         noiseSuppression: this.sdk._config.defaults.micNoiseSuppression,
         googDucking: false,
-        googHighpassFilter: true
-      }
+        googHighpassFilter: true,
+      },
     };
 
-    if (browserama.isChromeOrChromium) {
-      constraints.video.googNoiseReduction = true;
-    }
+    //DSL if (browserama.isChromeOrChromium) {
+    constraints.video.googNoiseReduction = true;
+    //}
 
     /* `false|undefined` means don't request */
     if (options.audio === false || options.audio === undefined) {
       constraints.audio = false;
-    } else if (typeof options.audio === 'string') {
+    } else if (typeof options.audio === "string") {
       constraints.audio.deviceId = { exact: options.audio };
-    } else if (options.audio === true && typeof this.sdk._config.defaults.audioDeviceId === 'string') {
-      constraints.audio.deviceId = { exact: this.sdk._config.defaults.audioDeviceId };
+    } else if (
+      options.audio === true &&
+      typeof this.sdk._config.defaults.audioDeviceId === "string"
+    ) {
+      constraints.audio.deviceId = {
+        exact: this.sdk._config.defaults.audioDeviceId,
+      };
     } /* any other truthy value is system default */
 
     /* `false|undefined` means don't request */
     if (options.video === false || options.video === undefined) {
       constraints.video = false;
-    } else if (typeof options.video === 'string') {
+    } else if (typeof options.video === "string") {
       constraints.video.deviceId = { exact: options.video };
-    } else if (options.video === true && typeof this.sdk._config.defaults.videoDeviceId === 'string') {
-      constraints.video.deviceId = { exact: this.sdk._config.defaults.videoDeviceId };
-    }  /* any other truthy value is system default */
+    } else if (
+      options.video === true &&
+      typeof this.sdk._config.defaults.videoDeviceId === "string"
+    ) {
+      constraints.video.deviceId = {
+        exact: this.sdk._config.defaults.videoDeviceId,
+      };
+    } /* any other truthy value is system default */
 
     /* video resolution and frameRate */
     if (constraints.video) {
@@ -905,7 +1008,8 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
       }
       /* `false` will not use any videoResolution (even SDK default) */
       if (options.videoResolution !== false) {
-        const resolution = options.videoResolution || this.sdk._config.defaults.videoResolution;
+        const resolution =
+          options.videoResolution || this.sdk._config.defaults.videoResolution;
         Object.assign(constraints.video, resolution);
       }
     }
@@ -913,8 +1017,8 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
     return constraints;
   }
 
-  private getScreenShareConstraints (): MediaStreamConstraints {
-    if (browserama.isChromeOrChromium) {
+  private getScreenShareConstraints(): MediaStreamConstraints {
+    /* DSL if (browserama.isChromeOrChromium) {
       if (this.hasGetDisplayMedia()) {
         return {
           audio: false,
@@ -937,17 +1041,20 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
         } as MediaTrackConstraints
       };
 
-    } else { /* if not chrome */
-      return {
-        audio: false,
-        video: {
-          mediaSource: 'window'
-        } as MediaTrackConstraints
-      };
-    }
+    } else { */ /* if not chrome */
+    return {
+      audio: false,
+      video: {
+        mediaSource: "window",
+      } as MediaTrackConstraints,
+    };
+    // }
   }
 
-  private mapOldToNewDevices (oldDevices: MediaDeviceInfo[], newDevices: MediaDeviceInfo[]): MediaDeviceInfo[] {
+  private mapOldToNewDevices(
+    oldDevices: MediaDeviceInfo[],
+    newDevices: MediaDeviceInfo[]
+  ): MediaDeviceInfo[] {
     /**
      * If a new device exists in the old device list _and_ has
      *  a label in the old list, we will use the old one instead
@@ -960,7 +1067,10 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
     for (const newDevice of newDevices) {
       /* see if the new device exists in the old devices list */
       const foundOldDevice = oldDevices.find(
-        d => d.deviceId === newDevice.deviceId && d.groupId === newDevice.groupId && d.kind === newDevice.kind
+        (d) =>
+          d.deviceId === newDevice.deviceId &&
+          d.groupId === newDevice.groupId &&
+          d.kind === newDevice.kind
       );
 
       /* if the device exists in the old list _and_ has a label we will use that */
@@ -974,13 +1084,18 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
     return devices;
   }
 
-  private doDeviceListsMatch (deviceList1: MediaDeviceInfo[], deviceList2: MediaDeviceInfo[]): boolean {
+  private doDeviceListsMatch(
+    deviceList1: MediaDeviceInfo[],
+    deviceList2: MediaDeviceInfo[]
+  ): boolean {
     if (deviceList1.length !== deviceList2.length) {
       return false;
     }
 
     for (const d1 of deviceList1) {
-      const deviceExists = deviceList2.some(d2 => this.compareDevices(d1, d2));
+      const deviceExists = deviceList2.some((d2) =>
+        this.compareDevices(d1, d2)
+      );
 
       if (!deviceExists) {
         return false;
@@ -995,7 +1110,7 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
    * @param d1 first device
    * @param d2 second device
    */
-  private compareDevices (d1: MediaDeviceInfo, d2: MediaDeviceInfo): boolean {
+  private compareDevices(d1: MediaDeviceInfo, d2: MediaDeviceInfo): boolean {
     return (
       d2.deviceId === d1.deviceId &&
       d2.groupId === d1.groupId &&
@@ -1004,8 +1119,8 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
     );
   }
 
-  private async handleDeviceChange () {
-    this.sdk.logger.debug('devices changed');
+  private async handleDeviceChange() {
+    this.sdk.logger.debug("devices changed");
     /* refresh devices in the cache with the new devices */
     await this.enumerateDevices();
     if (this.sdk.sessionManager) {
@@ -1036,7 +1151,7 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
    * @param mediaRequestOptions sdk media request options
    * @param retryOnFailure attempt to retry on gUM failure
    */
-  private async startSingleMedia (
+  private async startSingleMedia(
     mediaType: SdkMediaTypesToRequest,
     mediaRequestOptions: IMediaRequestOptions,
     retryOnFailure = true
@@ -1045,29 +1160,40 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
     const conversationId = reqOptionsCopy.session?.conversationId;
     const sessionId = reqOptionsCopy.session?.id;
 
-    const requestingAudio = mediaType === 'audio';
-    const requestingVideo = mediaType === 'video';
+    const requestingAudio = mediaType === "audio";
+    const requestingVideo = mediaType === "video";
 
-    const permissionsKey: keyof ISdkMediaState = requestingAudio ? 'hasMicPermissions' : 'hasCameraPermissions';
-    const requestedPermissionsKey: keyof ISdkMediaState = requestingAudio ? 'micPermissionsRequested' : 'cameraPermissionsRequested';
+    const permissionsKey: keyof ISdkMediaState = requestingAudio
+      ? "hasMicPermissions"
+      : "hasCameraPermissions";
+    const requestedPermissionsKey: keyof ISdkMediaState = requestingAudio
+      ? "micPermissionsRequested"
+      : "cameraPermissionsRequested";
 
-    const getCurrentSdkDefault = () => requestingAudio
-      ? this.sdk._config.defaults.audioDeviceId
-      : requestingVideo
+    const getCurrentSdkDefault = () =>
+      requestingAudio
+        ? this.sdk._config.defaults.audioDeviceId
+        : requestingVideo
         ? this.sdk._config.defaults.videoDeviceId
         : undefined;
 
     let sdkDefaultDeviceId = getCurrentSdkDefault();
 
-    const constraints: MediaStreamConstraints = this.getStandardConstraints(reqOptionsCopy);
+    const constraints: MediaStreamConstraints =
+      this.getStandardConstraints(reqOptionsCopy);
 
     /* make sure we are only requesting one type of media */
-    if (requestingAudio) { constraints.video = false; }
-    if (requestingVideo) { constraints.audio = false; }
+    if (requestingAudio) {
+      constraints.video = false;
+    }
+    if (requestingVideo) {
+      constraints.audio = false;
+    }
 
     /* if this value is not a boolean, use the sdk config's value */
-    if (typeof reqOptionsCopy.monitorMicVolume !== 'boolean') {
-      reqOptionsCopy.monitorMicVolume = this.sdk._config.defaults.monitorMicVolume;
+    if (typeof reqOptionsCopy.monitorMicVolume !== "boolean") {
+      reqOptionsCopy.monitorMicVolume =
+        this.sdk._config.defaults.monitorMicVolume;
     }
 
     /* utility to get current logging options (to ensure devices & permissions are current) */
@@ -1086,35 +1212,39 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
           micPermissionsRequested: state.micPermissionsRequested,
           cameraPermissionsRequested: state.cameraPermissionsRequested,
           hasMicPermissions: state.hasMicPermissions,
-          hasCameraPermissions: state.hasCameraPermissions
-        }
+          hasCameraPermissions: state.hasCameraPermissions,
+        },
       };
     };
 
-    this.sdk.logger.info('requesting getUserMedia', getLoggingExtras());
+    this.sdk.logger.info("requesting getUserMedia", getLoggingExtras());
 
     try {
-      const gumPromise = window.navigator.mediaDevices.getUserMedia(constraints);
+      const gumPromise =
+        window.navigator.mediaDevices.getUserMedia(constraints);
 
-      this.emit('gumRequest', { gumPromise, constraints, mediaRequestOptions });
+      this.emit("gumRequest", { gumPromise, constraints, mediaRequestOptions });
 
       const stream = await gumPromise;
-      stream.getVideoTracks().forEach(track => {
+      stream.getVideoTracks().forEach((track) => {
         if (track.muted) {
-          this.sdk.logger.warn('Track was removed because it was muted', track);
+          this.sdk.logger.warn("Track was removed because it was muted", track);
           stream.removeTrack(track);
         }
       });
       this.trackMedia(stream, reqOptionsCopy.monitorMicVolume, sessionId);
-      this.sdk.logger.info('returning media from getUserMedia', {
+      this.sdk.logger.info("returning media from getUserMedia", {
         ...getLoggingExtras(),
-        mediaTracks: stream.getTracks()
+        mediaTracks: stream.getTracks(),
       });
 
       /* if we haven't requested permissions for this media type yet OR if our permissions are now allowed */
       const currState = this.getState();
       if (!currState[requestedPermissionsKey] || !currState[permissionsKey]) {
-        this.setPermissions({ [permissionsKey]: true, [requestedPermissionsKey]: true });
+        this.setPermissions({
+          [permissionsKey]: true,
+          [requestedPermissionsKey]: true,
+        });
       }
 
       return stream;
@@ -1125,31 +1255,42 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
       /* PERMISSIONS ERRORS */
       if (this.isPermissionsError(e)) {
         /* set the requested media type permission to `false` */
-        this.setPermissions({ [permissionsKey]: false, [requestedPermissionsKey]: true });
-
-        this.sdk.logger.warn('Permission was denied for media type. Setting sdk state', {
-          ...getLoggingExtras(),
-          error: e
+        this.setPermissions({
+          [permissionsKey]: false,
+          [requestedPermissionsKey]: true,
         });
+
+        this.sdk.logger.warn(
+          "Permission was denied for media type. Setting sdk state",
+          {
+            ...getLoggingExtras(),
+            error: e,
+          }
+        );
         /* we aren't handling this error because we want Permissions errors to throw */
       } else if (
         /* NOTE: we don't have to check media type here because the error message lists 'video' */
         /* FF throws this error for cameras connected through a dock.. sometimes */
-        e.name === 'AbortError' && e.message === 'Starting video failed' &&
+        e.name === "AbortError" &&
+        e.message === "Starting video failed" &&
         /* make sure we are requesting video and there is a resolution */
-        constraints.video && reqOptionsCopy.videoResolution &&
+        constraints.video &&
+        reqOptionsCopy.videoResolution &&
         /* make sure we have retry enabled */
         retryOnFailure
       ) {
         /* try without video resoution (FF and docks can cause this resolution error) */
         const newOptions = { ...reqOptionsCopy };
         newOptions.videoResolution = false; // this will ensure SDK defaults aren't used
-        this.sdk.logger.warn('starting video was aborted. trying again without a video resolution constraint', {
-          ...getLoggingExtras(),
-          error: e,
-          options: { ...newOptions, session: undefined }
-        });
-        return this.startSingleMedia('video', newOptions, true);
+        this.sdk.logger.warn(
+          "starting video was aborted. trying again without a video resolution constraint",
+          {
+            ...getLoggingExtras(),
+            error: e,
+            options: { ...newOptions, session: undefined },
+          }
+        );
+        return this.startSingleMedia("video", newOptions, true);
       } else if (retryOnFailure) {
         const newOptions = { ...reqOptionsCopy };
         let newRetryOnFailure = true;
@@ -1157,7 +1298,7 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
         /* if requesting specific deviceId, try again with sdk default */
         if (
           /* if we were requesting a specific deviceId */
-          typeof reqOptionsCopy[mediaType] === 'string' &&
+          typeof reqOptionsCopy[mediaType] === "string" &&
           /* we have a valid sdk default */
           sdkDefaultDeviceId &&
           /* the sdk default device does not match the requested device */
@@ -1171,45 +1312,63 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
           newOptions[mediaType] = null; /* system default */
           newRetryOnFailure = false;
         } else {
-          newOptions[mediaType] = false; /* placeholder to indicate system default already attempted */
+          newOptions[mediaType] =
+            false; /* placeholder to indicate system default already attempted */
         }
 
         /* if it was video, we don't want resolution and only default frameRate (or none if that was requested) */
         if (requestingVideo) {
           newOptions.videoResolution = false;
-          newOptions.videoFrameRate = newOptions.videoFrameRate === false
-            ? false : undefined; /* `undefined` will use SDK default of `ideal: 30` */ // here
+          newOptions.videoFrameRate =
+            newOptions.videoFrameRate === false
+              ? false
+              : undefined; /* `undefined` will use SDK default of `ideal: 30` */ // here
         }
 
         /* this means we still have valid retry paramters */
         if (newOptions[mediaType] !== false) {
-          this.sdk.logger.warn('starting media failed. attempting retry with different mediaRequestOptions', {
-            ...getLoggingExtras(),
-            error: e,
-            retryOnFailure: newRetryOnFailure,
-            mediaRequestOptions: { ...newOptions, session: undefined }
-          });
+          this.sdk.logger.warn(
+            "starting media failed. attempting retry with different mediaRequestOptions",
+            {
+              ...getLoggingExtras(),
+              error: e,
+              retryOnFailure: newRetryOnFailure,
+              mediaRequestOptions: { ...newOptions, session: undefined },
+            }
+          );
 
-          return this.startSingleMedia(mediaType, newOptions, newRetryOnFailure);
+          return this.startSingleMedia(
+            mediaType,
+            newOptions,
+            newRetryOnFailure
+          );
         }
 
         /* if `newOptions[mediaType] !== false`, we've already retied with system default. we want to throw the error */
-        this.sdk.logger.warn('starting media failed. no valid retry parameters available', {
-          ...getLoggingExtras(),
-          error: e,
-          mediaRequestOptions: { ...newOptions, session: undefined }
-        });
+        this.sdk.logger.warn(
+          "starting media failed. no valid retry parameters available",
+          {
+            ...getLoggingExtras(),
+            error: e,
+            mediaRequestOptions: { ...newOptions, session: undefined },
+          }
+        );
       }
 
-      this.sdk.logger.error('error requesting getUserMedia from the sdk', {
+      this.sdk.logger.error("error requesting getUserMedia from the sdk", {
         error: e,
-        ...getLoggingExtras()
+        ...getLoggingExtras(),
       });
 
       /* only want to emit the error. still want to throw the original error from gUM */
       createAndEmitSdkError.call(this.sdk, SdkErrorTypes.media, e, {
         constraints,
-        requestedOptions: { ...mediaRequestOptions, session: undefined, sessionId, conversationId }
+        requestedOptions: {
+          ...mediaRequestOptions,
+          session: undefined,
+          sessionId,
+          conversationId,
+        },
       });
 
       /* throw the original error */
@@ -1217,15 +1376,19 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
     }
   }
 
-  private stopMedia (stream?: MediaStream): void {
-    stream?.getTracks().forEach(t => t.stop());
+  private stopMedia(stream?: MediaStream): void {
+    stream?.getTracks().forEach((t) => t.stop());
   }
 
-  private trackMedia (stream: MediaStream, monitorAudio = false, sessionId?: string): void {
-    stream.getTracks().forEach(track => {
+  private trackMedia(
+    stream: MediaStream,
+    monitorAudio = false,
+    sessionId?: string
+  ): void {
+    stream.getTracks().forEach((track) => {
       this.allMediaTracksCreated.set(track.id, track);
 
-      if (track.kind === 'audio' && monitorAudio) {
+      if (track.kind === "audio" && monitorAudio) {
         this.monitorMicVolume(stream, track, sessionId);
       }
 
@@ -1236,7 +1399,7 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
       };
 
       track.stop = () => {
-        this.sdk.logger.debug('stopping track from track.stop()', track);
+        this.sdk.logger.debug("stopping track from track.stop()", track);
         remove();
         stopTrack();
         /* reset function to prevent multiple log msgs if stop() is called more than once */
@@ -1244,21 +1407,21 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
       };
 
       const onEnded = () => {
-        this.sdk.logger.debug('stopping track from track.onended', track);
+        this.sdk.logger.debug("stopping track from track.onended", track);
         remove();
-        track.removeEventListener('ended', onEnded);
-      }
+        track.removeEventListener("ended", onEnded);
+      };
 
-      track.addEventListener('ended', onEnded);
+      track.addEventListener("ended", onEnded);
     });
   }
 
-  private setupDefaultMediaStreamListeners (stream: MediaStream): void {
+  private setupDefaultMediaStreamListeners(stream: MediaStream): void {
     const origAddTrack = stream.addTrack.bind(stream);
     const origRemoveTrack = stream.removeTrack.bind(stream);
 
     const addtrackListener = (evt: MediaStreamTrackEvent) => {
-      if (evt.track.kind === 'audio') {
+      if (evt.track.kind === "audio") {
         this.setupDefaultMediaTrackListeners(stream, evt.track);
       }
     };
@@ -1269,15 +1432,15 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
     const removeStreamListeners = () => {
       stream.addTrack = origAddTrack;
       stream.removeTrack = origRemoveTrack;
-      stream.removeEventListener('addtrack', addtrackListener);
-      stream.removeEventListener('removetrack', removetrackListener);
+      stream.removeEventListener("addtrack", addtrackListener);
+      stream.removeEventListener("removetrack", removetrackListener);
       this.defaultsBeingMonitored.delete(stream.id);
     };
 
-    stream.addEventListener('addtrack', addtrackListener);
-    stream.addEventListener('removetrack', removetrackListener);
+    stream.addEventListener("addtrack", addtrackListener);
+    stream.addEventListener("removetrack", removetrackListener);
     stream.addTrack = (track: MediaStreamTrack) => {
-      if (track.kind === 'audio') {
+      if (track.kind === "audio") {
         this.setupDefaultMediaTrackListeners(stream, track);
       }
       origAddTrack(track);
@@ -1290,17 +1453,19 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
     this.defaultsBeingMonitored.set(stream.id, removeStreamListeners);
 
     /* setup listeners on existing tracks */
-    stream.getAudioTracks()
-      .forEach(t => this.setupDefaultMediaTrackListeners(stream, t));
+    stream
+      .getAudioTracks()
+      .forEach((t) => this.setupDefaultMediaTrackListeners(stream, t));
   }
 
-  private removeDefaultAudioStreamAndListeners (): void {
+  private removeDefaultAudioStreamAndListeners(): void {
     const defaultStream = this.sdk._config.defaults.audioStream;
 
     if (!defaultStream) return;
 
-    defaultStream.getAudioTracks()
-      .forEach(t => this.removeDefaultAudioMediaTrackListeners(t.id));
+    defaultStream
+      .getAudioTracks()
+      .forEach((t) => this.removeDefaultAudioMediaTrackListeners(t.id));
 
     const removeFn = this.defaultsBeingMonitored.get(defaultStream.id);
     if (removeFn) {
@@ -1310,17 +1475,23 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
     this.sdk._config.defaults.audioStream = null;
   }
 
-  private setupDefaultMediaTrackListeners (stream: MediaStream, track: MediaStreamTrack): void {
+  private setupDefaultMediaTrackListeners(
+    stream: MediaStream,
+    track: MediaStreamTrack
+  ): void {
     const origStop = track.stop.bind(track);
 
     const endedListener = (_) => {
-      this.sdk.logger.warn('stopping defaults.audioStream track from track.onended. removing from default stream', track);
+      this.sdk.logger.warn(
+        "stopping defaults.audioStream track from track.onended. removing from default stream",
+        track
+      );
       stopAndRemoveTrack(track);
     };
 
     const removeListeners = () => {
       track.stop = origStop;
-      track.removeEventListener('ended', endedListener);
+      track.removeEventListener("ended", endedListener);
       this.defaultsBeingMonitored.delete(track.id);
     };
 
@@ -1331,23 +1502,31 @@ export class SdkMedia extends (EventEmitter as { new(): StrictEventEmitter<Event
 
       removeListeners();
 
-      const remainingActiveAudioTracks = stream.getAudioTracks().filter(t => t.readyState === 'live');
+      const remainingActiveAudioTracks = stream
+        .getAudioTracks()
+        .filter((t) => t.readyState === "live");
       if (!remainingActiveAudioTracks.length) {
-        this.sdk.logger.warn('defaults.audioStream has no active audio tracks. removing from sdk.defauls', track);
+        this.sdk.logger.warn(
+          "defaults.audioStream has no active audio tracks. removing from sdk.defauls",
+          track
+        );
         this.setDefaultAudioStream(null);
       }
     };
 
-    track.addEventListener('ended', endedListener);
+    track.addEventListener("ended", endedListener);
     track.stop = () => {
-      this.sdk.logger.warn('stopping defaults.audioStream track from track.stop(). removing from default stream', track);
+      this.sdk.logger.warn(
+        "stopping defaults.audioStream track from track.stop(). removing from default stream",
+        track
+      );
       stopAndRemoveTrack(track);
     };
 
     this.defaultsBeingMonitored.set(track.id, removeListeners);
   }
 
-  private removeDefaultAudioMediaTrackListeners (trackId: string): void {
+  private removeDefaultAudioMediaTrackListeners(trackId: string): void {
     const removeFn = this.defaultsBeingMonitored.get(trackId);
     if (removeFn) {
       removeFn();

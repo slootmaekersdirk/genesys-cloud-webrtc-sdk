@@ -1,9 +1,12 @@
-import { v4 } from 'uuid';
+import { v4 } from "uuid";
 
-import { GenesysCloudWebrtcSdk } from '../client';
-import { IExtendedMediaSession, ISessionIdAndConversationId } from '../types/interfaces';
+import { GenesysCloudWebrtcSdk } from "../client";
+import {
+  IExtendedMediaSession,
+  ISessionIdAndConversationId,
+} from "../types/interfaces";
 
-const GC_AUDIO_EL_CLASS = '__gc-webrtc-inbound';
+const GC_AUDIO_EL_CLASS = "__gc-webrtc-inbound";
 
 export let _hasTransceiverFunctionality: boolean;
 
@@ -11,8 +14,12 @@ export let _hasTransceiverFunctionality: boolean;
  * Select or create the `audio.__gc-webrtc-inbound` element
  * @deprecated use `createUniqueAudioMediaElement()` instead
  */
-export const getOrCreateAudioMediaElement = function (className: string = GC_AUDIO_EL_CLASS): HTMLAudioElement {
-  const existing = document.querySelector(`audio.${className}`);
+export const getOrCreateAudioMediaElement = function (
+  className: string = GC_AUDIO_EL_CLASS
+): HTMLAudioElement {
+  /* DSL
+ 
+ const existing = document.querySelector(`audio.${className}`);
   if (existing) {
     return existing as HTMLAudioElement;
   }
@@ -22,6 +29,8 @@ export const getOrCreateAudioMediaElement = function (className: string = GC_AUD
 
   document.body.append(audio);
   return audio;
+  */
+  return null;
 };
 
 export const createUniqueAudioMediaElement = function (): HTMLAudioElement {
@@ -51,7 +60,10 @@ export const attachAudioMedia = function (
   }
 
   if (audioElement.srcObject) {
-    sdk.logger.warn('Attaching media to an audio element that already has a srcObject. This can result is audio issues.', ids);
+    sdk.logger.warn(
+      "Attaching media to an audio element that already has a srcObject. This can result is audio issues.",
+      ids
+    );
   }
 
   // Volume must be between 0 and 1 for html elements
@@ -66,7 +78,7 @@ export const attachAudioMedia = function (
  *  RTC transceivers.
  */
 export const checkHasTransceiverFunctionality = function (): boolean {
-  if (typeof _hasTransceiverFunctionality === 'boolean') {
+  if (typeof _hasTransceiverFunctionality === "boolean") {
     return _hasTransceiverFunctionality;
   }
 
@@ -79,11 +91,19 @@ export const checkHasTransceiverFunctionality = function (): boolean {
      *  after we close the PC. The issue's root cause lies within a polyfill. The easiest (hackiest) solution
      *  is to just swallow the error thrown from this particular PC (since we don't really care about errors here).
      */
-    const origGetStats = dummyRtcPeerConnection.getStats.bind(dummyRtcPeerConnection);
+    const origGetStats = dummyRtcPeerConnection.getStats.bind(
+      dummyRtcPeerConnection
+    );
     /* istanbul ignore next */
-    (dummyRtcPeerConnection as any).getStats = (selector?: MediaStreamTrack | null): Promise<RTCStatsReport | any> => {
-      return origGetStats(selector).catch(e => {
-        if (e.name === 'InvalidStateError' && e.message === 'RTCPeerConnection is gone (did you enter Offline mode?)') {
+    (dummyRtcPeerConnection as any).getStats = (
+      selector?: MediaStreamTrack | null
+    ): Promise<RTCStatsReport | any> => {
+      return origGetStats(selector).catch((e) => {
+        if (
+          e.name === "InvalidStateError" &&
+          e.message ===
+            "RTCPeerConnection is gone (did you enter Offline mode?)"
+        ) {
           return {};
         }
         throw e;
@@ -107,7 +127,7 @@ export const checkHasTransceiverFunctionality = function (): boolean {
 export const checkAllTracksHaveEnded = function (stream: MediaStream): boolean {
   let allTracksHaveEnded = true;
   stream.getTracks().forEach(function (t) {
-    allTracksHaveEnded = t.readyState === 'ended' && allTracksHaveEnded;
+    allTracksHaveEnded = t.readyState === "ended" && allTracksHaveEnded;
   });
   return allTracksHaveEnded;
 };
@@ -117,21 +137,23 @@ export const checkAllTracksHaveEnded = function (stream: MediaStream): boolean {
  *  the passed in track
  * @param track media track to add
  */
-export const createNewStreamWithTrack = function (track: MediaStreamTrack): MediaStream {
+export const createNewStreamWithTrack = function (
+  track: MediaStreamTrack
+): MediaStream {
   return new MediaStream([track]);
 };
 
 export type LogDevicesAction =
   /* devices used on session start */
-  'sessionStarted' |
+  | "sessionStarted"
   /* when a function to update any type of media is called */
-  'calledToChangeDevices' |
+  | "calledToChangeDevices"
   /* right before media is updated */
-  'changingDevices' |
+  | "changingDevices"
   /* called after media has been updated successfully */
-  'successfullyChangedDevices' |
+  | "successfullyChangedDevices"
   /* called right before unmuting video (since we have to spin up new media) */
-  'unmutingVideo';
+  | "unmutingVideo";
 
 /**
  * Utility to log device changes. It will use the passed in `from` track _or_
@@ -149,7 +171,7 @@ export type LogDevicesAction =
  * @param action action taken
  * @param devicesChange devices changing to/from
  */
-export function logDeviceChange (
+export function logDeviceChange(
   sdk: GenesysCloudWebrtcSdk,
   session: IExtendedMediaSession,
   action: LogDevicesAction,
@@ -167,14 +189,17 @@ export function logDeviceChange (
   let currentVideoTrack: MediaStreamTrack;
   let currentAudioTrack: MediaStreamTrack;
   const currentOutputDeviceId: string = session._outputAudioElement?.sinkId;
-  const screenShareTrackId = session._screenShareStream?.getVideoTracks()[0]?.id;
-  const pcSenders = session.pc.getSenders().filter(s => s.track && s.track.id && s.track.id !== screenShareTrackId);
+  const screenShareTrackId =
+    session._screenShareStream?.getVideoTracks()[0]?.id;
+  const pcSenders = session.pc
+    .getSenders()
+    .filter((s) => s.track && s.track.id && s.track.id !== screenShareTrackId);
 
   /* grab the currect device being used */
-  pcSenders.forEach(sender => {
-    if (sender.track.kind === 'audio') {
+  pcSenders.forEach((sender) => {
+    if (sender.track.kind === "audio") {
       currentAudioTrack = sender.track;
-    } else /* if (sender.track.kind === 'video') */ {
+    } /* if (sender.track.kind === 'video') */ else {
       currentVideoTrack = sender.track;
     }
   });
@@ -191,28 +216,45 @@ export function logDeviceChange (
       if a track was passed in, we will assume the caller knows what it is doing
       and we will use that track for logging. Otherwise, we will look up the device */
     currentVideoDevice: devicesChange.fromVideoTrack
-      ? { deviceId: undefined, groupId: undefined, label: devicesChange.fromVideoTrack.label }
+      ? {
+          deviceId: undefined,
+          groupId: undefined,
+          label: devicesChange.fromVideoTrack.label,
+        }
       : sdk.media.findCachedDeviceByTrackLabelAndKind(currentVideoTrack),
     currentAudioDevice: devicesChange.fromAudioTrack
-      ? { deviceId: undefined, groupId: undefined, label: devicesChange.fromAudioTrack.label }
+      ? {
+          deviceId: undefined,
+          groupId: undefined,
+          label: devicesChange.fromAudioTrack.label,
+        }
       : sdk.media.findCachedDeviceByTrackLabelAndKind(currentAudioTrack),
-    currentOutputDevice: sdk.media.findCachedOutputDeviceById(currentOutputDeviceId),
+    currentOutputDevice: sdk.media.findCachedOutputDeviceById(
+      currentOutputDeviceId
+    ),
 
     /* current tracks */
     currentVideoTrack,
     currentAudioTrack,
 
     /* the device being switched to */
-    newVideoDevice: sdk.media.findCachedDeviceByTrackLabelAndKind(devicesChange.toVideoTrack),
-    newAudioDevice: sdk.media.findCachedDeviceByTrackLabelAndKind(devicesChange.toAudioTrack),
-    newOutputDevice: sdk.media.findCachedOutputDeviceById(devicesChange.requestedOutputDeviceId),
+    newVideoDevice: sdk.media.findCachedDeviceByTrackLabelAndKind(
+      devicesChange.toVideoTrack
+    ),
+    newAudioDevice: sdk.media.findCachedDeviceByTrackLabelAndKind(
+      devicesChange.toAudioTrack
+    ),
+    newOutputDevice: sdk.media.findCachedOutputDeviceById(
+      devicesChange.requestedOutputDeviceId
+    ),
 
     /* the track being switched to */
     newVideoTrack: devicesChange.toVideoTrack,
     newAudioTrack: devicesChange.toAudioTrack,
 
     /* potential media streamTracks we _want_ to switch to */
-    requestedNewMediaStreamTracks: devicesChange.requestedNewMediaStream?.getTracks(),
+    requestedNewMediaStreamTracks:
+      devicesChange.requestedNewMediaStream?.getTracks(),
 
     /* deviceIds requested */
     requestedOutputDeviceId: devicesChange.requestedOutputDeviceId,
@@ -227,34 +269,37 @@ export function logDeviceChange (
     /* other random stuff */
     currentAudioElementSinkId: currentOutputDeviceId,
     // TODO: these don't log in sumo as tracks...
-    currentSessionSenderTracks: pcSenders.map(s => s.track),
-    currentSessionReceiverTracks: session.pc.getReceivers().filter(s => s.track && s.track.id).map(s => s.track),
+    currentSessionSenderTracks: pcSenders.map((s) => s.track),
+    currentSessionReceiverTracks: session.pc
+      .getReceivers()
+      .filter((s) => s.track && s.track.id)
+      .map((s) => s.track),
 
     /* other potentially useful information to log */
     sessionVideoMute: session.videoMuted,
     sessionAudioMute: session.audioMuted,
     hasMicPermissions: mediaState.hasMicPermissions,
     hasCameraPermissions: mediaState.hasCameraPermissions,
-    hasOutputDeviceSupport: mediaState.hasOutputDeviceSupport
+    hasOutputDeviceSupport: mediaState.hasOutputDeviceSupport,
   };
 
   const keysToIgnoreIfBlank: Array<keyof typeof details> = [
-    'newVideoTrack',
-    'newAudioTrack',
-    'requestedAudioDeviceId',
-    'requestedVideoDeviceId',
-    'requestedOutputDeviceId',
-    'requestedNewMediaStreamTracks'
+    "newVideoTrack",
+    "newAudioTrack",
+    "requestedAudioDeviceId",
+    "requestedVideoDeviceId",
+    "requestedOutputDeviceId",
+    "requestedNewMediaStreamTracks",
   ];
 
   /* trim off parts of logs that aren't needed if they are blank */
   Object.keys(details)
-    .filter(k => keysToIgnoreIfBlank.includes(k as keyof typeof details))
-    .forEach(k => {
+    .filter((k) => keysToIgnoreIfBlank.includes(k as keyof typeof details))
+    .forEach((k) => {
       if (details[k] === undefined) {
         delete details[k];
       }
     });
 
-  sdk.logger.info('media devices changing for session', details);
+  sdk.logger.info("media devices changing for session", details);
 }
