@@ -795,7 +795,7 @@ export class SdkMedia extends (EventEmitter as {
    *  created after this has been called.
    */
   destroy() {
-    this.removeAllListeners();
+    // this.removeAllListeners();
     /* DSL window.navigator.mediaDevices.removeEventListener(
       "devicechange",
       this.onDeviceChangeListenerRef
