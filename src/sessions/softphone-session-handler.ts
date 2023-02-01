@@ -100,10 +100,10 @@ export default class SoftphoneSessionHandler extends BaseSessionHandler {
     if (lastConversationUpdate?.session) {
       session = lastConversationUpdate.session;
     } else if (!this.sdk.isConcurrentSoftphoneSessionsEnabled()) {
-    /* or, if LineAppearance is 1, use that session */
+      /* or, if LineAppearance is 1, use that session */
       session = this.activeSession;
     } else {
-    /* lastly, look through our sessions */
+      /* lastly, look through our sessions */
       session = sessions.find((s) => s.conversationId === update.id);
     }
 
@@ -610,7 +610,7 @@ export default class SoftphoneSessionHandler extends BaseSessionHandler {
         }
       );
     } else if (
-    /* If we are don't already have a session stored, store this one */
+      /* If we are don't already have a session stored, store this one */
       (this.sdk.isPersistentConnectionEnabled() || lineAppearance1) &&
       !this.hasActiveSession()
     ) {
@@ -775,7 +775,7 @@ export default class SoftphoneSessionHandler extends BaseSessionHandler {
               },
               { skipServer: true }
             );
-            this.sdk.off("sessionEnded", listener);
+            this.sdk.removeListener("sessionEnded", listener);
             return resolve(reason);
           } else {
             this.log(
