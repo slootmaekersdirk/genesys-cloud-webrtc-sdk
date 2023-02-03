@@ -29,6 +29,7 @@ export async function setupStreamingClient(
     originAppId,
     originAppName,
     originAppVersion,
+    logLevel,
   } = this._config;
 
   const connectionOptions: IClientOptions = {
@@ -40,6 +41,7 @@ export async function setupStreamingClient(
     appVersion: originAppVersion || this.VERSION,
     appId: originAppId || this.logger.clientId,
     optOutOfWebrtcStatsTelemetry: optOutOfTelemetry,
+    logLevel: logLevel,
   };
 
   if (this._personDetails) {
@@ -147,6 +149,6 @@ export const handleConversationUpdate = function (
 
 export const handleDisconnectedEvent = function (this: GenesysCloudWebrtcSdk) {
   const message = "Streaming API connection disconnected";
-  this.logger.error(message);
+  //DSL don't push console error this.logger.error(message);
   this.emit("disconnected", message);
 };
