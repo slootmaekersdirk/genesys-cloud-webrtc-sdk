@@ -111,7 +111,7 @@ export class GenesysCloudWebrtcSdk extends (EventEmitter as {
   _pauseDisconnectedMessages: boolean;
 
   _connected: boolean;
-  _streamingConnection: StreamingClient;
+  _streamingConnection: StreamingClient | null;
   _http: HttpClient;
   _orgDetails: IOrgDetails;
   _personDetails: IPersonDetails;
@@ -125,7 +125,7 @@ export class GenesysCloudWebrtcSdk extends (EventEmitter as {
   }
 
   get connected(): boolean {
-    return !!this._streamingConnection.connected;
+    return !!this._streamingConnection?.connected;
   }
 
   get isJwtAuth(): boolean {
