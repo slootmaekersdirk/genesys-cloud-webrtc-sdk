@@ -149,10 +149,7 @@ export default class SoftphoneSessionHandler extends BaseSessionHandler {
   async handlePropose(pendingSession: IPendingSession): Promise<void> {
     await super.handlePropose(pendingSession);
 
-    const lastConversationUpdate = this.conversations[pendingSession.conversationId];
-    const direction = lastConversationUpdate?.mostRecentCallState.direction
-    
-    if (pendingSession.autoAnswer && direction === 'outbound') {
+    if (pendingSession.autoAnswer && !this.sdk._config.disableAutoAnswer) {
       await this.proceedWithSession(pendingSession);
     }
   }
